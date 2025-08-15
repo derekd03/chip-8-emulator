@@ -1,0 +1,54 @@
+#ifndef CHIP8_H_
+#define CHIP8_H_
+
+struct Chip8
+{
+    unsigned short opcode; // Chip 8 has 35 2-byte opcodes
+
+    unsigned char memory[4096]; // 4K total memory
+    /* Systems memory map
+     * 0x000-0x1FF: Chip 8 interpreter (contains font set in emulation)
+     * 0x050-0x0A0: User-defined characters
+     * 0x200-0xFFF: Program ROM and RAM
+     */
+
+    unsigned char V[16];        // 16 8-bit registers
+    unsigned short I;           // 16-bit index register
+    unsigned short pc;          // Program counter
+    unsigned char gfx[64 * 32]; // Graphics buffer
+
+    unsigned char delay_timer;
+    unsigned char sound_timer;
+    
+    unsigned short stack[16];
+    unsigned short sp; // Stack pointer
+    bool key[16];      // Keypad state
+
+    void initialize();
+    void loadGame(const char *filename);
+    void emulateCycle();
+
+    // Fontset
+    unsigned char CHIP8_FONTSET[80] = {
+        0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
+        0x20, 0x60, 0x20, 0x20, 0x70, // 1
+        0xF0, 0x10, 0xF0, 0x80, 0xF0, // 2
+        0xF0, 0x10, 0xF0, 0x10, 0xF0, // 3
+        0x90, 0x90, 0xF0, 0x10, 0x10, // 4
+        0xF0, 0x80, 0xF0, 0x10, 0xF0, // 5
+        0xF0, 0x80, 0xF0, 0x90, 0xF0, // 6
+        0xF0, 0x10, 0x20, 0x40, 0x40, // 7
+        0xF0, 0x90, 0xF0, 0x90, 0xF0, // 8
+        0xF0, 0x90, 0xF0, 0x10, 0xF0, // 9
+        0xF0, 0x90, 0xF0, 0x90, 0x90, // A
+        0xE0, 0x90, 0xE0, 0x90, 0xE0, // B
+        0xF0, 0x80, 0x80, 0x80, 0xF0, // C
+        0xE0, 0x90, 0x90, 0x90, 0xE0, // D
+        0xF0, 0x80, 0xF0, 0x80, 0xF0, // E
+        0xF0, 0x80, 0xF0, 0x80, 0x80  // F
+    };
+
+    bool drawFlag; // Flag to indicate if the screen needs to be redrawn
+};
+
+#endif // CHIP8_H_

@@ -1,0 +1,3 @@
+C:/Users/derek/Documents/BScACS/chip-8-emulator/build/CMakeFiles/chip8-emulator.dir
+C:/Users/derek/Documents/BScACS/chip-8-emulator/build/CMakeFiles/edit_cache.dir
+C:/Users/derek/Documents/BScACS/chip-8-emulator/build/CMakeFiles/rebuild_cache.dir
