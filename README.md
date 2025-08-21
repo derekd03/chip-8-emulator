@@ -4,4 +4,6 @@ https://multigesture.net/articles/how-to-write-an-emulator-chip-8-interpreter/
 
 https://github.com/JamesGriffin/CHIP-8-Emulator/
 
-ChatGPT for suggestions, optimization, and testing
+https://www.cs.columbia.edu/~sedwards/classes/2016/4840-spring/designs/Chip8.pdf
+
+ChatGPT and GitHub Copilot for suggestions, optimization, and testing
