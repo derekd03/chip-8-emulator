@@ -6,4 +6,6 @@ https://github.com/JamesGriffin/CHIP-8-Emulator/
 
 https://www.cs.columbia.edu/~sedwards/classes/2016/4840-spring/designs/Chip8.pdf
 
-ChatGPT and GitHub Copilot for suggestions, optimization, and testing
+ChatGPT and GitHub Copilot for suggestions, optimization, and testing.
+
+23 public domain ROMs are located in the roms directory.
