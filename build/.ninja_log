@@ -62,3 +62,13 @@
 29	439	7775415664408123	CMakeFiles/chip8-emulator.dir/src/chip8.cpp.obj	3e73b72d0bc73c1d
 59	3141	7775415664714907	CMakeFiles/chip8-emulator.dir/src/main.cpp.obj	5fdda9d3465feee6
 3142	3598	7775415695517650	chip8-emulator.exe	bf4e5a0f802717b2
+12	51	7775427941243782	clean	9c4b4372737ab8da
+27	1313	7775427957433522	CMakeFiles/chip8-emulator.dir/src/chip8.cpp.obj	3e73b72d0bc73c1d
+54	3205	7775427957706869	CMakeFiles/chip8-emulator.dir/src/main.cpp.obj	5fdda9d3465feee6
+3206	3826	7775427989224067	chip8-emulator.exe	bf4e5a0f802717b2
+8	44	7775430770372237	clean	9c4b4372737ab8da
+30	1084	7775430788945471	CMakeFiles/chip8-emulator.dir/src/chip8.cpp.obj	3e73b72d0bc73c1d
+57	3000	7775430789206766	CMakeFiles/chip8-emulator.dir/src/main.cpp.obj	5fdda9d3465feee6
+3001	3587	7775430818652734	chip8-emulator.exe	bf4e5a0f802717b2
+21	2976	7775432019538571	CMakeFiles/chip8-emulator.dir/src/main.cpp.obj	5fdda9d3465feee6
+2978	3457	7775432049107370	chip8-emulator.exe	bf4e5a0f802717b2

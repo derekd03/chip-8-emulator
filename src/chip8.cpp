@@ -3,6 +3,7 @@
 #include <cstdio>
 #include <cstdint>
 #include <cstdlib>
+#include <stdexcept>
 
 void Chip8::initialize()
 {
@@ -32,18 +33,25 @@ void Chip8::loadGame(const char *filename)
 {
     // Load game into memory
     FILE *file = fopen(filename, "rb");
-    if (file)
+    if (!file)
     {
-        fread(&memory[0x200], 1, 4096 - 0x200, file); // Fill the memory at 0x200 == 512
-        fclose(file);
+        throw std::runtime_error("Failed to open ROM file.");
+    }
+    size_t bytesRead = fread(&memory[0x200], 1, 4096 - 0x200, file);
+    fclose(file);
+    if (bytesRead == 0)
+    {
+        throw std::runtime_error("Failed to read ROM file or file is empty.");
     }
 }
 
 void Chip8::emulateCycle()
 {
     // Fetch Opcode:
-    // merge both bytes with a bitwise OR operation
-    // and store them in an unsigned short
+    if (pc + 1 >= 4096)
+    {
+        throw std::out_of_range("Program counter out of memory bounds.");
+    }
     opcode = (memory[pc] << 8) | memory[pc + 1];
 
     // Precompute common values
@@ -64,55 +72,45 @@ void Chip8::emulateCycle()
             break;
 
         case 0x000E: // 00EE (RET): Returns from subroutine
+            if (sp == 0)
+                throw std::underflow_error("Stack underflow on RET.");
             pc = stack[--sp];
+            pc += 2; // FIX: Advance to next instruction after return
             break;
 
         default:
-            printf("Unknown 0x00XX opcode: 0x%X\n", opcode);
+            throw std::runtime_error(("Unknown 0x00XX opcode: 0x" + std::to_string(opcode)).c_str());
         }
         break;
 
     case 0x1000: // 1NNN (JP addr): Jump to location NNN
-        pc = opcode & 0x0FFF;
+        if (nnn >= 4096)
+            throw std::out_of_range("Jump address out of bounds.");
+        pc = nnn;
         break;
 
     case 0x2000: // 2NNN (CALL addr): Calls subroutine at NNN
+        if (sp >= 16)
+            throw std::overflow_error("Stack overflow on CALL.");
         stack[sp] = pc;
         ++sp;
-        pc = opcode & 0x0FFF;
+        if (nnn >= 4096)
+            throw std::out_of_range("Call address out of bounds.");
+        pc = nnn;
         break;
 
     case 0x3000: // 3XKK (SE Vx, byte): Skip next instruction if Vx = kk
-        if (V[x] == kk)
-        {
-            pc += 4;
-        }
-        else
-        {
-            pc += 2;
-        }
+        pc += (V[x] == kk) ? 4 : 2;
         break;
 
     case 0x4000: // 4XKK (SNE Vx, byte): Skip next instruction if Vx != kk
-        if (V[x] != kk)
-        {
-            pc += 4;
-        }
-        else
-        {
-            pc += 2;
-        }
+        pc += (V[x] != kk) ? 4 : 2;
         break;
 
     case 0x5000: // 5XY0 (SE Vx, Vy): Skip next instruction if Vx = Vy
-        if (V[x] == V[y])
-        {
-            pc += 4;
-        }
-        else
-        {
-            pc += 2;
-        }
+        if ((opcode & 0x000F) != 0)
+            throw std::runtime_error(("Unknown 0x5XY_ opcode: 0x" + std::to_string(opcode)).c_str());
+        pc += (V[x] == V[y]) ? 4 : 2;
         break;
 
     case 0x6000: // 6XKK (LD V, byte): Put the value kk into register Vx
@@ -195,20 +193,14 @@ void Chip8::emulateCycle()
         }
 
         default:
-            printf("Unknown 0x8XY_ opcode: 0x%X\n", opcode);
-            break;
+            throw std::runtime_error(("Unknown 0x8XY_ opcode: 0x" + std::to_string(opcode)).c_str());
         }
         break;
 
-    case 0x9000: // 9000 (SNE Vx, Vy): Skip next instruction if Vx != Vy
-        if (V[x] != V[y])
-        {
-            pc += 4;
-        }
-        else
-        {
-            pc += 2;
-        }
+    case 0x9000: // 9XY0 (SNE Vx, Vy): Skip next instruction if Vx != Vy
+        if ((opcode & 0x000F) != 0)
+            throw std::runtime_error(("Unknown 0x9XY_ opcode: 0x" + std::to_string(opcode)).c_str());
+        pc += (V[x] != V[y]) ? 4 : 2;
         break;
 
     case 0xA000: // ANNN (LD I, addr): Sets I to the address NNN
@@ -232,6 +224,9 @@ void Chip8::emulateCycle()
         unsigned short height = opcode & 0x000F;
         unsigned short pixel;
 
+        if (I + height > 4096)
+            throw std::out_of_range("Sprite draw out of memory bounds.");
+
         V[0xF] = 0; // Reset collision flag
 
         for (int yline = 0; yline < height; yline++)
@@ -239,11 +234,14 @@ void Chip8::emulateCycle()
             pixel = memory[I + yline];
             for (int xline = 0; xline < 8; xline++)
             {
+                int gfxIndex = xpos + xline + ((ypos + yline) * 64);
+                if (gfxIndex >= 64 * 32)
+                    continue; // Prevent out-of-bounds
                 if ((pixel & (0x80 >> xline)) != 0)
                 {
-                    if (gfx[(xpos + xline + ((ypos + yline) * 64))] == 1)
-                        V[0xF] = 1;                                 // Set collision flag
-                    gfx[xpos + xline + ((ypos + yline) * 64)] ^= 1; // Toggle pixel
+                    if (gfx[gfxIndex] == 1)
+                        V[0xF] = 1;     // Set collision flag
+                    gfx[gfxIndex] ^= 1; // Toggle pixel
                 }
             }
         }
@@ -256,17 +254,11 @@ void Chip8::emulateCycle()
         switch (opcode & 0x00FF)
         {
         case 0x009E: // EX9E (SKP Vx): Skips the next instruction if the key stored in Vx is pressed
-            if (key[V[x]] != 0)
-                pc += 4;
-            else
-                pc += 2;
+            pc += (key[V[x]] != 0) ? 4 : 2;
             break;
 
         case 0x00A1: // EXA1 (SKNP Vx): Skips the next instruction if the key stored of Vx is not pressed
-            if (key[V[x]] == 0)
-                pc += 4;
-            else
-                pc += 2;
+            pc += (key[V[x]] == 0) ? 4 : 2;
             break;
 
         default:
@@ -313,17 +305,23 @@ void Chip8::emulateCycle()
             break;
 
         case 0x001E: // FX1E (ADD I, Vx): Add Vx to I
+            if (I + V[x] >= 4096)
+                throw std::out_of_range("I register addition out of bounds.");
             I += V[x];
             pc += 2;
             break;
 
         case 0x0029: // FX29 (LD F, Vx): Set I to the location of sprite for Digit Vx
+            if (V[x] > 0xF)
+                throw std::out_of_range("Sprite digit out of range.");
             I = V[x] * SPRITE_LENGTH;
             pc += 2;
             break;
 
         case 0x0033: // FX33 (LD B, Vx): Stores BCD representation of VX in memory locations I, I+1, and I+2
         {
+            if (I + 2 >= 4096)
+                throw std::out_of_range("BCD store out of memory bounds.");
             memory[I] = V[x] / 100;
             memory[I + 1] = (V[x] / 10) % 10;
             memory[I + 2] = V[x] % 10;
@@ -333,6 +331,8 @@ void Chip8::emulateCycle()
 
         case 0x0055: // FX55 (LD [I], Vx): Stores V0 to Vx in memory starting at address I.
         {
+            if (I + x >= 4096)
+                throw std::out_of_range("Memory store out of bounds.");
             for (int i = 0; i <= x; ++i)
             {
                 memory[I + i] = V[i];
@@ -343,6 +343,8 @@ void Chip8::emulateCycle()
 
         case 0x0065: // FX65 (LD Vx, [I]): Stores memory starting at address I in V0 to Vx.
         {
+            if (I + x >= 4096)
+                throw std::out_of_range("Memory load out of bounds.");
             for (int i = 0; i <= x; ++i)
             {
                 V[i] = memory[I + i];
