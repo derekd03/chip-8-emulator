@@ -1,4 +1,5 @@
 #include <SDL2/SDL.h>
+#include <SDL2/SDL_audio.h>
 #include <iostream>
 #include <stdlib.h>
 #include "chip8.h"
@@ -33,6 +34,25 @@ const uint8_t KEY_MAP[16] = {
     SDLK_f,
     SDLK_v,
 };
+
+SDL_AudioDeviceID audioDevice = 0;
+bool audioPlaying = false;
+
+// Square wave callback
+void audioCallback(void *userdata, Uint8 *stream, int len)
+{
+    static int phase = 0;
+    int freq = 440;         // 440 Hz beep
+    int sampleRate = 44100; // 44.1 kHz
+    int samplesPerCycle = sampleRate / freq;
+
+    for (int i = 0; i < len; i++)
+    {
+        // Generate square wave
+        stream[i] = (phase < samplesPerCycle / 2) ? 128 : 0;
+        phase = (phase + 1) % samplesPerCycle;
+    }
+}
 
 int main(int argc, char **argv)
 {
@@ -107,12 +127,39 @@ int main(int argc, char **argv)
         chip8.drawFlag = true;
     }
 
+    // Initialize audio
+    SDL_AudioSpec audioSpec = {};
+    audioSpec.freq = 44100;
+    audioSpec.format = AUDIO_U8;
+    audioSpec.channels = 1;
+    audioSpec.samples = 2048;
+    audioSpec.callback = audioCallback;
+
+    audioDevice = SDL_OpenAudioDevice(NULL, 0, &audioSpec, NULL, 0);
+    if (!audioDevice)
+    {
+        cerr << "Failed to open audio device: " << SDL_GetError() << endl;
+        return 1;
+    }
+
     // Emulation loop
     for (;;)
     {
         // Emulate one cycle (skip in test mode)
         if (!testMode)
             chip8.emulateCycle();
+
+        // Start beep if sound_timer > 0 and not already playing
+        if (chip8.sound_timer > 0 && !audioPlaying && audioDevice) {
+            SDL_PauseAudioDevice(audioDevice, 0); // Start audio
+            audioPlaying = true;
+        }
+        
+        // Stop beep if sound_timer == 0 and audio is playing
+        if (chip8.sound_timer == 0 && audioPlaying && audioDevice) {
+            SDL_PauseAudioDevice(audioDevice, 1); // Stop audio
+            audioPlaying = false;
+        }
 
         // Handle events
         SDL_Event e;
