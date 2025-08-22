@@ -19,7 +19,7 @@ struct Chip8
 
     unsigned char delay_timer;
     unsigned char sound_timer;
-    
+
     unsigned short stack[16];
     unsigned short sp; // Stack pointer
     bool key[16];      // Keypad state
@@ -49,6 +49,8 @@ struct Chip8
     };
 
     bool drawFlag; // Flag to indicate if the screen needs to be redrawn
+
+    static constexpr int SPRITE_LENGTH = 5;
 };
 
 #endif // CHIP8_H_

@@ -2,6 +2,7 @@
 #include <cstring>
 #include <cstdio>
 #include <cstdint>
+#include <cstdlib>
 
 void Chip8::initialize()
 {
@@ -215,16 +216,14 @@ void Chip8::emulateCycle()
         pc += 2;
         break;
 
-        /*
-        TODO:
+    case 0xB000: // BNNN (JP V0, addr): Sets PC to address NNN + V0
+        pc = (opcode & 0x0FFF) + V[0x0];
+        break;
 
-        Bnnn - JP V0, addr
-        Jump to location nnn + V0. The program counter is set to nnn plus the value of V0.
-
-        Cxkk - RND Vx, byte
-        Set Vx = random byte AND kk. The interpreter generates a random number from 0 to 255, which is then
-        ANDed with the value kk. The results are stored in Vx. See instruction 8xy2 for more information on AND.
-        */
+    case 0xC000: // CXKK (RND Vx, byte): Sets Vx to AND of a random byte and kk
+        V[x] = (rand() % 256) & kk;
+        pc += 2;
+        break;
 
     case 0xD000: // DXYN (DRW Vx, Vy, nibble): Draws a sprite at (Vx, Vy) with N bytes of data starting at memory location I
     {
@@ -256,17 +255,20 @@ void Chip8::emulateCycle()
     case 0xE000:
         switch (opcode & 0x00FF)
         {
-        case 0x009E: // EX9E (SKP Vx): Skips the next instruction if the key stored in VX is pressed
-            if (key[V[(opcode & 0x0F00) >> 8]] != 0)
-                pc += 4; // Skip next instruction
+        case 0x009E: // EX9E (SKP Vx): Skips the next instruction if the key stored in Vx is pressed
+            if (key[V[x]] != 0)
+                pc += 4;
             else
-                pc += 2; // Go to next instruction
+                pc += 2;
             break;
-        /*
-        TODO: ExA1 - SKNP Vx
-        Skip next instruction if key with the value of Vx is not pressed. Checks the keyboard, and if the key
-        corresponding to the value of Vx is currently in the up position, PC is increased by 2.
-        */
+
+        case 0x00A1: // EXA1 (SKNP Vx): Skips the next instruction if the key stored of Vx is not pressed
+            if (key[V[x]] == 0)
+                pc += 4;
+            else
+                pc += 2;
+            break;
+
         default:
             printf("Unknown 0xEX__ opcode: 0x%X\n", opcode);
             break;
@@ -274,35 +276,52 @@ void Chip8::emulateCycle()
         break;
 
     case 0xF000:
-        /*
-        TODO:
 
-        Fx07 - LD Vx, DT
-        Set Vx = delay timer value. The value of DT is placed into Vx.
-
-        Fx0A - LD Vx, K
-        Wait for a key press, store the value of the key in Vx. All execution stops until a key is pressed, then the
-        value of that key is stored in Vx.
-        */
         switch (opcode & 0x00FF)
         {
-            /*
-            TODO:
+        case 0x0007: // FX07 (LD Vx, DT): The value of DT is placed into Vx
+            V[x] = delay_timer;
+            pc += 2;
+            break;
 
-            Fx15 - LD DT, Vx
-            Set delay timer = Vx. Delay Timer is set equal to the value of Vx.
+        case 0x000A: // FX0A (LD Vx, K): Wait (all execution is stopped) for a key press, store the value of the key in Vx
+        {
+            bool keyPressed = false;
+            for (int i = 0; i < 16; ++i)
+            {
+                if (key[i] != 0)
+                {
+                    V[x] = i;
+                    keyPressed = true;
+                    break;
+                }
+            }
+            if (!keyPressed) // Repeat this opcode next cycle until a key is pressed
+                return;
+            pc += 2;
+            break;
+        }
 
-            Fx18 - LD ST, Vx
-            Set sound timer = Vx. Sound Timer is set equal to the value of Vx.
+        case 0x0015: // FX15 (LD DT, Vx): Set DT to Vx
+            delay_timer = V[x];
+            pc += 2;
+            break;
 
-            Fx1E - ADD I, Vx
-            Set I = I + Vx. The values of I and Vx are added, and the results are stored in I.
+        case 0x0018: // FX18 (LD ST, Vx): Set ST to Vx
+            sound_timer = V[x];
+            pc += 2;
+            break;
 
-            Fx29 - LD F, Vx
-            Set I = location of sprite for digit Vx. The value of I is set to the location for the hexadecimal sprite
-            corresponding to the value of Vx. See section 2.4, Display, for more information on the Chip-8 hexadecimal
-            font. To obtain this value, multiply VX by 5 (all font data stored in first 80 bytes of memory).
-            */
+        case 0x001E: // FX1E (ADD I, Vx): Add Vx to I
+            I += V[x];
+            pc += 2;
+            break;
+
+        case 0x0029: // FX29 (LD F, Vx): Set I to the location of sprite for Digit Vx
+            I = V[x] * SPRITE_LENGTH;
+            pc += 2;
+            break;
+
         case 0x0033: // FX33 (LD B, Vx): Stores BCD representation of VX in memory locations I, I+1, and I+2
         {
             memory[I] = V[x] / 100;
@@ -311,22 +330,31 @@ void Chip8::emulateCycle()
             pc += 2;
             break;
         }
-        /*
-        TODO:
 
-        Fx55 - LD [I], Vx
-        Stores V0 to VX in memory starting at address I. I is then set to I + x + 1.
+        case 0x0055: // FX55 (LD [I], Vx): Stores V0 to Vx in memory starting at address I.
+        {
+            for (int i = 0; i <= x; ++i)
+            {
+                memory[I + i] = V[i];
+            }
+            pc += 2;
+            break;
+        }
 
-        Fx65 - LD Vx, [I]
-        Fills V0 to VX with values from memory starting at address I. I is then set to I + x + 1.
-        */
+        case 0x0065: // FX65 (LD Vx, [I]): Stores memory starting at address I in V0 to Vx.
+        {
+            for (int i = 0; i <= x; ++i)
+            {
+                V[i] = memory[I + i];
+            }
+            pc += 2;
+            break;
+        }
         default:
             printf("Unknown 0xFX__ opcode: 0x%X\n", opcode);
             break;
         }
         break;
-
-        /* TODO: More opcodes */
 
     default:
         printf("Unknown opcode: 0x%X\n", opcode);
